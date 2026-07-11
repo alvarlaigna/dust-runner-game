@@ -5,6 +5,7 @@
 #include "hud.h"
 #include "enemy.h"
 #include "menu.h"
+#include "input.h"
 #include <stdio.h>
 
 /* Colour palette */
@@ -84,7 +85,7 @@ void HudDrawUpgrade(GameContext *g) {
     int startX = SCREEN_W/2 - totalW/2;
     int cardY   = SCREEN_H/2 - cardH/2 + 10;
 
-    Vector2 mouse = GetMousePosition();
+    Vector2 mouse = InputPointerPosition();
 
     for (int i = 0; i < UPGRADE_CHOICES; i++) {
         if (!g->upgradeChoices[i]) continue;
@@ -158,7 +159,7 @@ void HudDrawGameOver(const GameContext *g) {
 /* True on click/release of the game-over Main Menu button. */
 bool HudGameOverMainMenu(void) {
     Rectangle mm = { SCREEN_W/2 - 140, SCREEN_H/2 + 96, 280, 46 };
-    return CheckCollisionPointRec(GetMousePosition(), mm) && IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
+    return CheckCollisionPointRec(InputPointerPosition(), mm) && InputPointerReleased();
 }
 
 /* First-run tutorial prompt (contextual). */

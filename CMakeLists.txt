@@ -41,6 +41,7 @@ add_executable(DustRunner
     src/sky.c
     src/audio.c
     src/menu.c
+    src/input.c
 )
 
 target_include_directories(DustRunner PRIVATE src)
@@ -54,6 +55,7 @@ if(EMSCRIPTEN)
     target_link_options(DustRunner PRIVATE
         "-sUSE_GLFW=3"
         "-sALLOW_MEMORY_GROWTH=1"
+        "-sGROWABLE_ARRAYBUFFERS=0"
         "-sFORCE_FILESYSTEM=1"
         "-sSTACK_SIZE=1048576"
         "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/web/shell.html")

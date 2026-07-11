@@ -2,18 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Dust Runner - Alvar Laigna</title>
 <style>
   html,body{margin:0;padding:0;width:100%;height:100%;background:#120e0a;
     overflow:hidden;overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}
-  /* Grid place-items centers on both axes and, unlike flex align-items:center,
-     never clips or pushes the canvas when it exactly matches the viewport. */
   body{display:grid;place-items:center;}
-  /* Framebuffer stays 720x720; scale the element to the largest square that fits
-     any viewport / itch.io iframe. min(100vw,100vh) == the largest fitting square. */
-  canvas.emscripten{display:block;width:min(100vw,100vh);height:min(100vw,100vh);
-    image-rendering:auto;touch-action:none;background:#120e0a;outline:none;}
+  /* Framebuffer stays 720x720; CSS scales display. !important resists GLFW resets. */
+  canvas.emscripten{display:block;width:min(100vw,100vh)!important;height:min(100vw,100vh)!important;
+    max-width:100vw;max-height:100vh;image-rendering:auto;touch-action:none;
+    background:#120e0a;outline:none;}
   #status{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
     color:#e0c080;font:16px/1.4 system-ui,sans-serif;}
 </style>
@@ -24,8 +22,38 @@
   <div id="status">Loading Dust Runner…</div>
   <script>
     var statusEl = document.getElementById('status');
+    var canvas = document.getElementById('canvas');
+
+    function fitCanvas() {
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      if (window.frameElement) {
+        try {
+          var rect = window.frameElement.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            w = rect.width;
+            h = rect.height;
+          }
+        } catch (e) { /* cross-origin iframe; fall back to innerWidth/Height */ }
+      }
+      var size = Math.min(w, h);
+      canvas.style.setProperty('width', size + 'px', 'important');
+      canvas.style.setProperty('height', size + 'px', 'important');
+    }
+
+    function fitCanvasBurst(frames) {
+      fitCanvas();
+      if (frames > 0) requestAnimationFrame(function() { fitCanvasBurst(frames - 1); });
+    }
+
+    fitCanvas();
+    window.addEventListener('resize', fitCanvas, { passive: true });
+    window.addEventListener('orientationchange', fitCanvas, { passive: true });
+    canvas.addEventListener('pointerdown', function() { canvas.focus(); }, { passive: true });
+
     var Module = {
-      canvas: (function(){ return document.getElementById('canvas'); })(),
+      canvas: canvas,
+      onRuntimeInitialized: function() { fitCanvasBurst(90); },
       setStatus: function(t){ if (statusEl) statusEl.textContent = t; if (!t) statusEl.style.display='none'; },
       print: function(t){ console.log(t); },
       printErr: function(t){ console.error(t); }

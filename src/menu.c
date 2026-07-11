@@ -4,6 +4,7 @@
  */
 #include "menu.h"
 #include "game.h"     /* SCREEN_W / SCREEN_H */
+#include "input.h"
 #include <string.h>   /* memcpy for settings persistence */
 
 #define SETTINGS_FILE  "dustrunner_settings.dat"
@@ -93,9 +94,9 @@ static float SliderInput(Rectangle track, Vector2 m, bool down, float v) {
 /* Shared menu button: warm-ochre primary, hover/press, dimmed when disabled.
  * Returns true on a left-click release inside an enabled button. */
 bool MenuButton(Rectangle r, const char *label, bool enabled, bool primary) {
-    Vector2 m = GetMousePosition();
+    Vector2 m = InputPointerPosition();
     bool hover = enabled && CheckCollisionPointRec(m, r);
-    bool held  = hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    bool held  = hover && InputPointerDown();
     Color bg = !enabled ? (Color){ 40, 36, 32, 220 }
              : held     ? (Color){ 235, 180, 80, 255 }
              : primary  ? (Color){ 200, 150, 60, 255 }
@@ -107,15 +108,15 @@ bool MenuButton(Rectangle r, const char *label, bool enabled, bool primary) {
     Color fg = !enabled ? (Color){ 120, 110, 96, 255 }
              : (primary || held) ? (Color){ 30, 24, 16, 255 } : RAYWHITE;
     DrawText(label, (int)(r.x + (r.width - tw) * 0.5f), (int)(r.y + (r.height - fs) * 0.5f), fs, fg);
-    return hover && IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
+    return hover && InputPointerReleased();
 }
 
 /* Settings controls only (no Resume/Exit); reused by pause and title. */
 void SettingsPanelUpdate(Settings *s) {
     MenuLayout L = Layout();
-    Vector2 m = GetMousePosition();
-    bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-    bool down  = IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    Vector2 m = InputPointerPosition();
+    bool click = InputPointerPressed();
+    bool down  = InputPointerDown();
 
     if (click && CheckCollisionPointRec(m, L.aaToggle)) s->aa = !s->aa;
     for (int i = 0; i < FPS_OPTION_COUNT; i++)
@@ -128,7 +129,7 @@ void SettingsPanelUpdate(Settings *s) {
 
 /* Drawing */
 static void DrawButton(Rectangle r, const char *t, bool hot) {
-    bool hover = CheckCollisionPointRec(GetMousePosition(), r);
+    bool hover = CheckCollisionPointRec(InputPointerPosition(), r);
     Color bg = hot   ? (Color){ 200, 150, 60, 255 }
              : hover ? (Color){ 86, 76, 60, 255 }
                      : (Color){ 60, 54, 46, 255 };

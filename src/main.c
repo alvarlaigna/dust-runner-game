@@ -19,6 +19,7 @@
 #include "sky.h"
 #include "audio.h"
 #include "menu.h"
+#include "input.h"
 
 #include <string.h>
 #include <math.h>
@@ -134,6 +135,8 @@ static void UpdateDrawFrame(void) {
     float dt = GetFrameTime();
     if (dt > 0.05f) dt = 0.05f; /* cap at 20 fps equivalent */
 
+    InputBeginFrame();
+
     if (GetTouchPointCount() > 0) a->touchSeen = true;
 
     /* Apply settings every frame (cheap, idempotent). */
@@ -170,8 +173,8 @@ static void UpdateDrawFrame(void) {
             if (act == MENU_QUIT)       a->settings.quit = true;
         } else {
             /* On-screen touch controls (pause / auto-aim), only while playing. */
-            if (a->touchSeen && a->g.state == STATE_PLAYING && IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-                Vector2 mp = GetMousePosition();
+            if (a->touchSeen && a->g.state == STATE_PLAYING && InputPointerReleased()) {
+                Vector2 mp = InputPointerPosition();
                 if (CheckCollisionPointRec(mp, HudTouchPauseRect()))   a->g.paused = true;
                 if (CheckCollisionPointRec(mp, HudTouchAutoAimRect())) a->g.vehicle.autoAim = !a->g.vehicle.autoAim;
             }
@@ -292,8 +295,8 @@ static void GameUpdate(GameContext *g, float dt) {
         if (IsKeyPressed(KEY_THREE)) chosen = 2;
 
         /* Mouse click on card */
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            Vector2 m = GetMousePosition();
+        if (InputPointerPressed()) {
+            Vector2 m = InputPointerPosition();
             int cardW = UPGRADE_CARD_W, cardH = UPGRADE_CARD_H, gap = UPGRADE_CARD_GAP;
             int totalW = UPGRADE_CHOICES * cardW + (UPGRADE_CHOICES - 1) * gap;
             int startX = SCREEN_W/2 - totalW/2;
@@ -336,7 +339,7 @@ static void GameUpdate(GameContext *g, float dt) {
     if (IsKeyPressed(KEY_SPACE)) v->autoAim = !v->autoAim;
 
     /* Tutorial: advance on the taught action. */
-    if (g->tutStep == TUT_MOVE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    if (g->tutStep == TUT_MOVE && InputPointerPressed()) {
         g->tutStep = TUT_FIRE; g->tutTimer = 0.0f;
     } else if (g->tutStep == TUT_FIRE) {
         g->tutTimer += dt;
@@ -346,8 +349,8 @@ static void GameUpdate(GameContext *g, float dt) {
     }
 
     /* LMB: move command (skip taps that land on the on-screen touch controls) */
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        Vector2 mp = GetMousePosition();
+    if (InputPointerPressed()) {
+        Vector2 mp = InputPointerPosition();
         bool onTouchUI = gApp.touchSeen &&
             (CheckCollisionPointRec(mp, HudTouchPauseRect()) || CheckCollisionPointRec(mp, HudTouchAutoAimRect()));
         if (!onTouchUI) {
@@ -421,7 +424,7 @@ static void GameUpdate(GameContext *g, float dt) {
 
 /* Main draw */
 static void GameDraw(GameContext *g, SkyState *sky, PostFX *fx, const Settings *settings) {
-    bool touch = (GetTouchPointCount() > 0);
+    bool touch = (GetTouchPointCount() > 0) || gApp.touchSeen;
 
     /* 3D world rendered into the offscreen target */
     PostFXBegin(fx);
@@ -465,7 +468,7 @@ static void GameDraw(GameContext *g, SkyState *sky, PostFX *fx, const Settings *
             default: break;
         }
         if (g->state == STATE_PLAYING) HudDrawTutorial(g, touch);
-        if (touch && g->state == STATE_PLAYING) HudDrawTouchControls(g);
+        if (gApp.touchSeen && g->state == STATE_PLAYING) HudDrawTouchControls(g);
         if (g->paused) PauseDraw(settings);
     }
 
@@ -473,4 +476,6 @@ static void GameDraw(GameContext *g, SkyState *sky, PostFX *fx, const Settings *
     DrawTransition();
 
     EndDrawing();
+
+    InputEndFrame();
 }
