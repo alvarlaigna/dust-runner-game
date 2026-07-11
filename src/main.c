@@ -14,6 +14,7 @@
 #include "projectile.h"
 #include "wave.h"
 #include "parts.h"
+#include "particle.h"
 #include "hud.h"
 #include "postfx.h"
 #include "sky.h"
@@ -253,7 +254,7 @@ static void TryFireTurret(GameContext *g, Vector3 worldTarget) {
 }
 
 /* Camera follow */
-static void CameraFollow(Camera3D *cam, Vector3 target, float dt) {
+static void CameraFollow(Camera3D *cam, Vector3 target, float shake, float dt) {
     float lerpSpeed = 4.0f;
     float t = 1.0f - expf(-lerpSpeed * dt);
     cam->target.x += (target.x - cam->target.x) * t;
@@ -261,6 +262,13 @@ static void CameraFollow(Camera3D *cam, Vector3 target, float dt) {
     cam->position.x = cam->target.x;
     cam->position.z = cam->target.z + CAM_BACK;   /* top-down; retuned for 1:1 */
     cam->position.y = CAM_HEIGHT;
+
+    if (shake > 0.0f) {                            /* ruin-smash screen shake */
+        float sx = (GetRandomValue(-100, 100) / 100.0f) * SMASH_SHAKE_AMP * shake;
+        float sz = (GetRandomValue(-100, 100) / 100.0f) * SMASH_SHAKE_AMP * shake;
+        cam->target.x   += sx; cam->position.x += sx;
+        cam->target.z   += sz; cam->position.z += sz;
+    }
 }
 
 /* Scrap collection */
@@ -276,6 +284,35 @@ static void CollectScrap(GameContext *g) {
             g->scrapCollected += 5;
             g->score += 10;
         }
+    }
+}
+
+/* Destructible ruins: smash a ruin the moving vehicle drives into. */
+static void TrySmashRuin(GameContext *g) {
+    Vehicle *v = &g->vehicle;
+    if (v->curSpeed < SMASH_MIN_SPEED) return;
+    float a = (90.0f - v->angle) * DEG2RAD;                 /* forward heading */
+    float bx = v->pos.x + cosf(a) * SMASH_BUMPER;
+    float bz = v->pos.z + sinf(a) * SMASH_BUMPER;
+    int tx = (int)(bx / TILE_SIZE), ty = (int)(bz / TILE_SIZE);
+    if (tx < 0 || tx >= TERRAIN_TILES || ty < 0 || ty >= TERRAIN_TILES) return;
+    if (g->terrain.tiles[ty][tx] != TILE_RUIN) return;
+
+    g->terrain.tiles[ty][tx] = TILE_HARDPAN;               /* clear the wall */
+    Vector3 at = { tx * TILE_SIZE + TILE_SIZE*0.5f, 0.5f, ty * TILE_SIZE + TILE_SIZE*0.5f };
+    ParticlesSpawnBurst(g->debris, DEBRIS_MAX, at, DEBRIS_PER_SMASH);
+    g->screenShake = SMASH_SHAKE;
+    if (gAudio) AudioPlayCrash(gAudio);
+
+    if (v->ramDamage > 0.0f) {                             /* Nitro L3: no self-damage, blast enemies */
+        float r2 = SMASH_BLAST_RADIUS * SMASH_BLAST_RADIUS;
+        for (int i = 0; i < ENEMY_MAX; i++) {
+            if (!g->enemies[i].active) continue;
+            float dx = g->enemies[i].pos.x - at.x, dz = g->enemies[i].pos.z - at.z;
+            if (dx*dx + dz*dz < r2) g->enemies[i].hp -= SMASH_BLAST_DMG;
+        }
+    } else {
+        VehicleTakeDamage(v, SMASH_HP_COST);
     }
 }
 
@@ -350,6 +387,7 @@ static void GameUpdate(GameContext *g, float dt) {
     /* Playing state */
     Vehicle *v = &g->vehicle;
     if (g->rigFlashTimer > 0.0f) g->rigFlashTimer -= dt;
+    if (g->screenShake > 0.0f) g->screenShake -= dt / SMASH_SHAKE_TIME;
 
     /* Toggle auto-aim */
     if (IsKeyPressed(KEY_SPACE)) v->autoAim = !v->autoAim;
@@ -391,6 +429,7 @@ static void GameUpdate(GameContext *g, float dt) {
 
     /* Kinetic Bumper: damage enemies the moving vehicle touches (Nitro L3). */
     PartsRamPass(v, g->enemies, ENEMY_MAX, dt);
+    TrySmashRuin(g);
 
     /* Auto-aim: find nearest enemy and rotate turret */
     if (v->autoAim) {
@@ -420,11 +459,14 @@ static void GameUpdate(GameContext *g, float dt) {
     /* Projectiles */
     ProjectilesUpdate(g->projectiles, PROJ_MAX, g->enemies, ENEMY_MAX, dt);
 
+    /* Destructible-ruin debris */
+    ParticlesUpdate(g->debris, DEBRIS_MAX, dt);
+
     /* Scrap */
     CollectScrap(g);
 
     /* Camera follow */
-    CameraFollow(&g->camera, v->pos, dt);
+    CameraFollow(&g->camera, v->pos, g->screenShake, dt);
 
     /* Death check */
     if (v->hp <= 0) {
@@ -452,10 +494,11 @@ static void GameDraw(GameContext *g, SkyState *sky, PostFX *fx, const Settings *
     SkyDrawBackground(sky, g->camera);
 
     BeginMode3D(g->camera);
-    TerrainDraw(&g->terrain);
+    TerrainDraw(&g->terrain, g->camera.target);
     VehicleDraw(&g->vehicle);
     EnemiesDraw(g->enemies, ENEMY_MAX, &g->camera);
     ProjectilesDraw(g->projectiles, PROJ_MAX);
+    ParticlesDraw(g->debris, DEBRIS_MAX);
 
     /* Move-target indicator */
     if (g->vehicle.moving) {

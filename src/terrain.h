@@ -6,6 +6,6 @@
 #include "game.h"
 
 void  TerrainGenerate(Terrain *t, unsigned int seed);
-void  TerrainDraw(const Terrain *t);
+void  TerrainDraw(const Terrain *t, Vector3 center);
 float TerrainSpeedMod(const Terrain *t, Vector3 pos);
 bool  TerrainIsPassable(const Terrain *t, Vector3 pos);

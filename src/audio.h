@@ -10,7 +10,7 @@
 
 typedef struct {
     /* one-shot SFX (synthesized at init) */
-    Sound       shoot, explosion, hit, waveStart, gameOver, merge;
+    Sound       shoot, explosion, hit, waveStart, gameOver, merge, crash;
     /* looping procedural streams */
     AudioStream engine, wind;
     bool        ready;
@@ -33,3 +33,4 @@ void AudioPlayHit(AudioManager *am);
 void AudioPlayWaveStart(AudioManager *am);
 void AudioPlayGameOver(AudioManager *am);
 void AudioPlayMerge(AudioManager *am);
+void AudioPlayCrash(AudioManager *am);

@@ -36,6 +36,8 @@ add_executable(DustRunner
     src/projectile.c
     src/wave.c
     src/parts.c
+    src/particle.c
+    src/particle_draw.c
     src/hud.c
     src/postfx.c
     src/sky.c
@@ -85,4 +87,17 @@ if(EMSCRIPTEN)
     message(STATUS "Dust Runner v${PROJECT_VERSION}  ->  Web (WebAssembly)")
 else()
     message(STATUS "Dust Runner v${PROJECT_VERSION}  ->  desktop (${CMAKE_SYSTEM_NAME})")
+endif()
+
+# particle.c stays raylib-call-free (ParticlesDraw lives in particle_draw.c instead) so
+# this target never needs to link raylib.
+option(BUILD_TESTS "Build unit tests" OFF)
+if(BUILD_TESTS AND NOT EMSCRIPTEN)
+    add_executable(DustRunnerTests tests/test_parts.c src/parts.c tests/test_particle.c src/particle.c)
+    target_include_directories(DustRunnerTests PRIVATE src ${raylib_SOURCE_DIR}/src)
+    target_compile_options(DustRunnerTests PRIVATE -g -Wall -Wextra)
+    if(NOT WIN32)
+        target_link_libraries(DustRunnerTests PRIVATE m)
+    endif()
+    message(STATUS "Dust Runner tests: enabled")
 endif()

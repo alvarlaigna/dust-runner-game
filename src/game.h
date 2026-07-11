@@ -33,6 +33,13 @@
 #define TILE_SIZE       4.0f        /* world units */
 #define TERRAIN_WORLD   (TERRAIN_TILES * TILE_SIZE)
 
+/* Hex terrain rendering (render-only; logical grid stays square) */
+#define HEX_R            2.15f   /* hex prism radius; > TILE_SIZE/2 so neighbours nearly touch */
+#define HEX_H_MIN        0.12f   /* flat-tile prism height */
+#define HEX_H_STEP       0.16f   /* per-level height bump for the jagged-board look */
+#define HEX_RUIN_H       1.30f   /* ruin prism height (cover) */
+#define TERRAIN_CULL     30      /* draw tiles within this many of the camera-centre tile */
+
 /* Vehicle */
 #define VEHICLE_SPEED_BASE  18.0f   /* world units / s (max speed) */
 #define VEHICLE_ARRIVE_DIST  0.6f   /* stop radius */
@@ -254,6 +261,27 @@ typedef struct {
     int      scrapCount;
 } Terrain;
 
+/* Destructible-ruin debris + smash tuning */
+#define DEBRIS_MAX        64
+#define DEBRIS_PER_SMASH  12
+#define DEBRIS_GRAVITY    30.0f
+#define DEBRIS_BOUNCE     0.4f
+#define SMASH_MIN_SPEED   6.0f    /* momentum needed to smash rather than stall */
+#define SMASH_BUMPER      2.2f    /* front-bumper reach, world units */
+#define SMASH_HP_COST     8       /* HP lost per smash without Nitro L3 */
+#define SMASH_BLAST_RADIUS 5.0f   /* Nitro L3 enemy-blast radius */
+#define SMASH_BLAST_DMG   30      /* Nitro L3 enemy-blast damage */
+#define SMASH_SHAKE       0.35f   /* initial screen-shake magnitude (0..1) */
+#define SMASH_SHAKE_TIME  0.3f    /* shake decay duration, seconds */
+#define SMASH_SHAKE_AMP   1.2f    /* max camera offset, world units */
+
+typedef struct {
+    Vector3 pos, vel;
+    float   size;      /* shrinks to 0 over life */
+    float   life;      /* seconds remaining */
+    bool    active;
+} Debris;
+
 /* First-run tutorial (contextual teach-by-doing). */
 typedef enum { TUT_MOVE = 0, TUT_FIRE, TUT_DONE } TutorialStep;
 
@@ -274,6 +302,10 @@ typedef struct {
     PartType    rigChoices[UPGRADE_CHOICES];
     float       rigFlashTimer;   /* merge highlight countdown */
     int         rigFlashSlot;    /* slot index to flash, or -1 */
+
+    /* destructible-ruin debris pool + screen shake */
+    Debris      debris[DEBRIS_MAX];
+    float       screenShake;
 
     /* score / meta */
     int         score;

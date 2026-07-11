@@ -113,6 +113,21 @@ static Sound GenMerge(AudioManager *am) {
     Sound s = SoundFromSamples(d, n); free(d); return s;
 }
 
+static Sound GenCrash(AudioManager *am) {
+    int n = (int)(SAMPLE_RATE * 0.45f);
+    short *d = (short *)malloc(n * sizeof(short));
+    for (int i = 0; i < n; i++) {
+        float t = (float)i / n;
+        float env = expf(-5.0f * t);
+        float rumble = sinf(2.0f * PI * 45.0f * (float)i / SAMPLE_RATE);
+        float s = (NextNoise(am) * 0.5f + rumble * 0.7f) * env * 0.7f;
+        if (s > 1.0f) s = 1.0f;
+        if (s < -1.0f) s = -1.0f;
+        d[i] = (short)(s * 32767.0f);
+    }
+    Sound s = SoundFromSamples(d, n); free(d); return s;
+}
+
 /* Looping stream fills */
 static void FillEngine(AudioManager *am, short *buf, int n) {
     float inc = am->engineFreq / SAMPLE_RATE;
@@ -148,6 +163,7 @@ void AudioManagerInit(AudioManager *am) {
     am->waveStart = GenWaveStart(am);
     am->gameOver  = GenGameOver(am);
     am->merge     = GenMerge(am);
+    am->crash     = GenCrash(am);
 
     SetAudioStreamBufferSizeDefault(BUFLEN);
     am->engine = LoadAudioStream(SAMPLE_RATE, 16, 1);
@@ -179,6 +195,7 @@ void AudioManagerUnload(AudioManager *am) {
     UnloadAudioStream(am->engine); UnloadAudioStream(am->wind);
     UnloadSound(am->shoot); UnloadSound(am->explosion); UnloadSound(am->hit);
     UnloadSound(am->waveStart); UnloadSound(am->gameOver); UnloadSound(am->merge);
+    UnloadSound(am->crash);
     am->ready = false;
 }
 
@@ -191,6 +208,7 @@ void AudioSetSfxVolume(AudioManager *am, float v) {
     SetSoundVolume(am->waveStart, v);
     SetSoundVolume(am->gameOver, v);
     SetSoundVolume(am->merge, v);
+    SetSoundVolume(am->crash, v);
     SetAudioStreamVolume(am->engine, 0.42f * v);   /* engine counts as an SFX */
 }
 void AudioSetMusicVolume(AudioManager *am, float v) {
@@ -209,3 +227,4 @@ void AudioPlayHit(AudioManager *am)       { if (am->ready) PlaySound(am->hit); }
 void AudioPlayWaveStart(AudioManager *am) { if (am->ready) PlaySound(am->waveStart); }
 void AudioPlayGameOver(AudioManager *am)  { if (am->ready) PlaySound(am->gameOver); }
 void AudioPlayMerge(AudioManager *am) { if (am->ready) PlaySound(am->merge); }
+void AudioPlayCrash(AudioManager *am) { if (am->ready) PlaySound(am->crash); }

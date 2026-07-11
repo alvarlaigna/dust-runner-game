@@ -107,23 +107,38 @@ static Color FadeEdge(Color c, int x, int y) {
     };
 }
 
-void TerrainDraw(const Terrain *t) {
-    for (int y = 0; y < TERRAIN_TILES; y++) {
-        for (int x = 0; x < TERRAIN_TILES; x++) {
+/* Cheap per-tile pseudo-random in [0,1) for height variation (deterministic). */
+static float TileHash01(int x, int y) {
+    unsigned int h = ((unsigned int)x * 73856093u) ^ ((unsigned int)y * 19349663u);
+    h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15;
+    return (float)(h & 0xFFFF) / 65536.0f;
+}
+
+void TerrainDraw(const Terrain *t, Vector3 center) {
+    /* Camera-local culling window (edge-fade/haze hides the boundary). */
+    int cx = (int)(center.x / TILE_SIZE), cy = (int)(center.z / TILE_SIZE);
+    int x0 = cx - TERRAIN_CULL, x1 = cx + TERRAIN_CULL;
+    int y0 = cy - TERRAIN_CULL, y1 = cy + TERRAIN_CULL;
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 >= TERRAIN_TILES) x1 = TERRAIN_TILES - 1;
+    if (y1 >= TERRAIN_TILES) y1 = TERRAIN_TILES - 1;
+
+    for (int y = y0; y <= y1; y++) {
+        for (int x = x0; x <= x1; x++) {
             TileType tt = t->tiles[y][x];
             Color c = FadeEdge(TILE_COLOR[tt], x, y);
-            Vector3 pos = {
-                x * TILE_SIZE + TILE_SIZE * 0.5f,
-                0.0f,
-                y * TILE_SIZE + TILE_SIZE * 0.5f
-            };
-            DrawCube(pos, TILE_SIZE - 0.05f, 0.1f, TILE_SIZE - 0.05f, c);
+            float px = x * TILE_SIZE + TILE_SIZE * 0.5f;
+            float pz = y * TILE_SIZE + TILE_SIZE * 0.5f;
 
-            /* Ruin: draw a slightly raised block */
             if (tt == TILE_RUIN) {
-                Vector3 rp = { pos.x, 0.6f, pos.z };
-                DrawCube(rp, TILE_SIZE * 0.7f, 1.2f, TILE_SIZE * 0.7f,
-                         (Color){70, 62, 50, 255});
+                /* ruin: tall dark hex pillar (cover) */
+                DrawCylinder((Vector3){ px, 0.0f, pz }, HEX_R * 0.85f, HEX_R * 0.85f,
+                             HEX_RUIN_H, 6, (Color){ 70, 62, 50, 255 });
+            } else {
+                int lvl = (int)(TileHash01(x, y) * 3.0f);            /* 0..2 jagged levels */
+                float h = HEX_H_MIN + (float)lvl * HEX_H_STEP;
+                DrawCylinder((Vector3){ px, 0.0f, pz }, HEX_R, HEX_R, h, 6, c);
             }
         }
     }
