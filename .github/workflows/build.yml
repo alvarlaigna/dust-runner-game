@@ -1,0 +1,91 @@
+name: build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: this workflow only reads the repo and uploads build artifacts.
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux (desktop)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build \
+            libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxrandr-dev \
+            libxinerama-dev libxcursor-dev libxi-dev libasound2-dev
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dust-runner-linux
+          path: build/DustRunner
+          if-no-files-found: error
+
+  windows:
+    name: Windows (desktop)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dust-runner-windows
+          path: build/DustRunner.exe
+          if-no-files-found: error
+
+  web:
+    name: Web (WebAssembly)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Install ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021 # v14
+        with:
+          version: 3.1.63
+      - name: Configure
+        run: emcmake cmake -S . -B build-web -G Ninja -DPLATFORM=Web -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build-web
+      - name: Stage itch.io package
+        run: |
+          mkdir -p web-dist
+          cp build-web/index.html build-web/index.js build-web/index.wasm web-dist/
+          if [ -f build-web/index.data ]; then cp build-web/index.data web-dist/; fi
+      - name: Report size
+        run: du -bc web-dist/* | tail -1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dust-runner-web
+          path: web-dist
+          if-no-files-found: error
