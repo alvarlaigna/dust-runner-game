@@ -290,6 +290,11 @@ static void CollectScrap(GameContext *g) {
 /* Destructible ruins: smash a ruin the moving vehicle drives into. */
 static void TrySmashRuin(GameContext *g) {
     Vehicle *v = &g->vehicle;
+    /* The bumper probes SMASH_BUMPER (~2.2u) ahead of the hull, so a ruin is detected
+     * while the hull centre is still ~2u away - before VehicleUpdate's impassable
+     * speed-bleed, which only fires within curSpeed*dt (~0.3u) of the tile. So this
+     * runs at full approach speed and SMASH_MIN_SPEED is the real gate. If smashing
+     * feels hard to trigger in playtest, lower SMASH_MIN_SPEED. */
     if (v->curSpeed < SMASH_MIN_SPEED) return;
     float a = (90.0f - v->angle) * DEG2RAD;                 /* forward heading */
     float bx = v->pos.x + cosf(a) * SMASH_BUMPER;
@@ -319,6 +324,9 @@ static void TrySmashRuin(GameContext *g) {
 /* Main update */
 static void GameUpdate(GameContext *g, float dt) {
     g->runTime += dt;
+
+    /* Debris settles/expires in every state (a smash can land just as a wave clears). */
+    ParticlesUpdate(g->debris, DEBRIS_MAX, dt);
 
     /* Game over state */
     if (g->state == STATE_GAMEOVER) {
@@ -387,7 +395,7 @@ static void GameUpdate(GameContext *g, float dt) {
     /* Playing state */
     Vehicle *v = &g->vehicle;
     if (g->rigFlashTimer > 0.0f) g->rigFlashTimer -= dt;
-    if (g->screenShake > 0.0f) g->screenShake -= dt / SMASH_SHAKE_TIME;
+    if (g->screenShake > 0.0f) { g->screenShake -= dt / SMASH_SHAKE_TIME; if (g->screenShake < 0.0f) g->screenShake = 0.0f; }
 
     /* Toggle auto-aim */
     if (IsKeyPressed(KEY_SPACE)) v->autoAim = !v->autoAim;
@@ -458,9 +466,6 @@ static void GameUpdate(GameContext *g, float dt) {
 
     /* Projectiles */
     ProjectilesUpdate(g->projectiles, PROJ_MAX, g->enemies, ENEMY_MAX, dt);
-
-    /* Destructible-ruin debris */
-    ParticlesUpdate(g->debris, DEBRIS_MAX, dt);
 
     /* Scrap */
     CollectScrap(g);
