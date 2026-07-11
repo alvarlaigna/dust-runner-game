@@ -61,7 +61,7 @@
 #define ENEMY_HP_BASE       40
 
 /* Wave */
-#define WAVE_RESPITE_TIME   20.0f   /* seconds */
+#define WAVE_RESPITE_TIME   5.0f    /* seconds between waves */
 #define UPGRADE_CHOICES     3
 
 /* Upgrade card geometry (shared by hud.c draw + main.c hit-test; fits 3-up in 720) */
