@@ -9,5 +9,4 @@ void VehicleInit(Vehicle *v);
 void VehicleUpdate(Vehicle *v, const Terrain *t, float dt);
 void VehicleDraw(const Vehicle *v);
 void VehicleSetTarget(Vehicle *v, Vector3 target);
-void VehicleApplyUpgrade(Vehicle *v, int upgradeId);
 void VehicleAimTurretAt(Vehicle *v, Vector3 worldTarget, float dt);

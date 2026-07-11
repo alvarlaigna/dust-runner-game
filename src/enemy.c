@@ -5,6 +5,7 @@
  */
 #include "enemy.h"
 #include "projectile.h"
+#include "parts.h"
 #include <math.h>
 #include <string.h>
 
@@ -53,10 +54,7 @@ static void UpdateRaider(Enemy *e, Vehicle *v, float dt) {
     if (dist < 2.0f) {
         e->attackCooldown -= dt;
         if (e->attackCooldown <= 0.0f) {
-            int dmg = (int)(8.0f * (e->type == ENEMY_BOSS ? 3.0f : 1.0f));
-            dmg = dmg - v->armor;
-            if (dmg < 1) dmg = 1;
-            v->hp -= dmg;
+            VehicleTakeDamage(v, (int)(8.0f * (e->type == ENEMY_BOSS ? 3.0f : 1.0f)));
             e->attackCooldown = 1.2f;
         }
     }
@@ -110,9 +108,7 @@ static void UpdateHeavy(Enemy *e, Vehicle *v, float dt) {
     if (dist < 2.5f) {
         e->attackCooldown -= dt;
         if (e->attackCooldown <= 0.0f) {
-            int dmg = 20 - v->armor;
-            if (dmg < 1) dmg = 1;
-            v->hp -= dmg;
+            VehicleTakeDamage(v, 20);
             e->attackCooldown = 2.0f;
         }
     }
@@ -138,9 +134,7 @@ static void UpdateSwarm(Enemy *e, Vehicle *v, float dt, int idx) {
     if (dist < 1.5f) {
         e->attackCooldown -= dt;
         if (e->attackCooldown <= 0.0f) {
-            int dmg = 5 - v->armor;
-            if (dmg < 1) dmg = 1;
-            v->hp -= dmg;
+            VehicleTakeDamage(v, 5);
             e->attackCooldown = 0.8f;
         }
     }

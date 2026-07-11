@@ -6,6 +6,8 @@
 #include "enemy.h"
 #include "menu.h"
 #include "input.h"
+#include "parts.h"
+#include <math.h>
 #include <stdio.h>
 
 /* Colour palette */
@@ -71,57 +73,102 @@ void HudDrawRespite(const GameContext *g) {
     DrawText(buf, SCREEN_W/2 - tw/2, SCREEN_H/2 + 28, 16, HUD_DIM);
 }
 
-/* Upgrade selection */
-void HudDrawUpgrade(GameContext *g) {
-    /* Dim background */
-    DrawRectangle(0, 0, SCREEN_W, SCREEN_H, (Color){0, 0, 0, 160});
+/* Category colour shared by the rig hexes and the draft cards. */
+static Color RigCatColor(UpgradeCategory c) {
+    return c == UPCAT_WEAPON  ? (Color){200, 70,  55,  255} :
+           c == UPCAT_CHASSIS ? (Color){60,  130, 210, 255} :
+                                (Color){210, 170, 60,  255};
+}
 
-    const char *title = "CHOOSE UPGRADE";
+/* 6-slot honeycomb, top-right, below the score panel. Tune positions visually. */
+void HudDrawRig(const GameContext *g) {
+    const float r = 20.0f;
+    const float baseX = SCREEN_W - 86.0f, baseY = 96.0f;
+    for (int i = 0; i < RIG_SLOTS; i++) {
+        int col = i / 3, row = i % 3;
+        float cx = baseX + col * (r * 1.7f);
+        float cy = baseY + row * (r * 1.75f) + (col ? r * 0.9f : 0.0f);
+        Vector2 c = { cx, cy };
+        const HexSlot *s = &g->vehicle.slots[i];
+
+        Color fill, line;
+        if (!s->filled) {
+            fill = (Color){ 30, 28, 24, 150 };
+            line = (Color){ 90, 84, 70, 200 };
+        } else {
+            fill = RigCatColor(PartGetDef(s->type)->category);
+            line = (Color){ 245, 235, 210, 255 };
+        }
+        if (g->rigFlashTimer > 0.0f && g->rigFlashSlot == i) {
+            float f = g->rigFlashTimer / RIG_FLASH_TIME;
+            fill.r = (unsigned char)fminf(255.0f, fill.r + 120.0f * f);
+            fill.g = (unsigned char)fminf(255.0f, fill.g + 120.0f * f);
+            fill.b = (unsigned char)fminf(255.0f, fill.b + 120.0f * f);
+        }
+        DrawPoly(c, 6, r, 30.0f, fill);
+        DrawPolyLinesEx(c, 6, r, 30.0f, 2.0f, line);
+        if (s->filled) {
+            char lv[4]; snprintf(lv, sizeof lv, "%d", s->level);
+            int tw = MeasureText(lv, 18);
+            DrawText(lv, (int)(cx - tw / 2), (int)(cy - 9), 18, (Color){ 20, 18, 14, 255 });
+        }
+    }
+}
+
+Rectangle HudDraftSkipRect(void) {
+    return (Rectangle){ SCREEN_W/2 - 90, SCREEN_H - 58, 180, 38 };
+}
+
+/* Part-choice cards (replaces the old upgrade draft). */
+void HudDrawDraft(GameContext *g) {
+    DrawRectangle(0, 0, SCREEN_W, SCREEN_H, (Color){ 0, 0, 0, 160 });
+
+    const char *title = "INSTALL A PART";
     int tw = MeasureText(title, 34);
-    DrawText(title, SCREEN_W/2 - tw/2, 90, 34, HUD_ACCENT);
+    DrawText(title, SCREEN_W/2 - tw/2, 80, 34, HUD_ACCENT);
 
     int cardW = UPGRADE_CARD_W, cardH = UPGRADE_CARD_H, gap = UPGRADE_CARD_GAP;
     int totalW = UPGRADE_CHOICES * cardW + (UPGRADE_CHOICES - 1) * gap;
     int startX = SCREEN_W/2 - totalW/2;
-    int cardY   = SCREEN_H/2 - cardH/2 + 10;
-
+    int cardY  = SCREEN_H/2 - cardH/2 + 10;
     Vector2 mouse = InputPointerPosition();
 
     for (int i = 0; i < UPGRADE_CHOICES; i++) {
-        if (!g->upgradeChoices[i]) continue;
+        const PartDef *d = PartGetDef(g->rigChoices[i]);
         int cx = startX + i * (cardW + gap);
-
         bool hover = (mouse.x >= cx && mouse.x <= cx + cardW &&
                       mouse.y >= cardY && mouse.y <= cardY + cardH);
         if (hover) g->upgradeHover = i;
 
-        Color bg = hover ? (Color){40, 35, 20, 230} : HUD_BG;
-        Color border = hover ? HUD_ACCENT : (Color){100, 90, 70, 255};
+        DrawRectangle(cx, cardY, cardW, cardH, hover ? (Color){40,35,20,230} : HUD_BG);
+        DrawRectangleLines(cx, cardY, cardW, cardH, hover ? HUD_ACCENT : (Color){100,90,70,255});
 
-        DrawRectangle(cx, cardY, cardW, cardH, bg);
-        DrawRectangleLines(cx, cardY, cardW, cardH, border);
-
-        /* Category badge */
-        const char *cat = g->upgradeChoices[i]->category == UPCAT_WEAPON  ? "WEAPON"  :
-                          g->upgradeChoices[i]->category == UPCAT_CHASSIS ? "CHASSIS" : "UTILITY";
-        Color catCol = g->upgradeChoices[i]->category == UPCAT_WEAPON  ? (Color){220, 80, 60, 255} :
-                       g->upgradeChoices[i]->category == UPCAT_CHASSIS ? (Color){60, 140, 220, 255} :
-                                                                          (Color){80, 200, 120, 255};
-        DrawRectangle(cx + 8, cardY + 8, MeasureText(cat, 14) + 12, 22, catCol);
+        const char *cat = d->category == UPCAT_WEAPON  ? "WEAPON"  :
+                          d->category == UPCAT_CHASSIS ? "CHASSIS" : "UTILITY";
+        DrawRectangle(cx + 8, cardY + 8, MeasureText(cat, 14) + 12, 22, RigCatColor(d->category));
         DrawText(cat, cx + 14, cardY + 12, 14, WHITE);
 
-        /* Name */
-        DrawText(g->upgradeChoices[i]->name, cx + 10, cardY + 40, 20, HUD_TEXT);
+        DrawText(d->name, cx + 10, cardY + 40, 20, HUD_TEXT);
+        DrawText("Install Lv1", cx + 10, cardY + 68, 14, HUD_DIM);
 
-        /* Description */
-        DrawText(g->upgradeChoices[i]->desc, cx + 10, cardY + 70, 14, HUD_DIM);
+        char l3[48];
+        snprintf(l3, sizeof l3, "Lv3: %s", d->l3unlock);
+        DrawText(l3, cx + 10, cardY + 90, 14, HUD_ACCENT);
 
-        /* Key hint */
-        char key[4] = { '1' + i, '\0', '\0', '\0' };
-        DrawText(key, cx + cardW/2 - 6, cardY + cardH - 30, 22, hover ? HUD_ACCENT : HUD_DIM);
+        char key[4] = { (char)('1' + i), '\0', '\0', '\0' };
+        DrawText(key, cx + cardW/2 - 6, cardY + cardH - 28, 22, hover ? HUD_ACCENT : HUD_DIM);
     }
 
-    DrawText("Press 1 / 2 / 3  or click a card", SCREEN_W/2 - 160, SCREEN_H - 60, 18, HUD_DIM);
+    Rectangle skip = HudDraftSkipRect();
+    bool skHover = CheckCollisionPointRec(mouse, skip);
+    DrawRectangleRec(skip, skHover ? (Color){50,44,30,230} : HUD_BG);
+    DrawRectangleLinesEx(skip, 1.0f, skHover ? HUD_ACCENT : (Color){100,90,70,255});
+    const char *sk = "[S] Skip";
+    int stw = MeasureText(sk, 18);
+    DrawText(sk, (int)(skip.x + skip.width/2 - stw/2), (int)(skip.y + 9), 18, HUD_TEXT);
+
+    DrawText("Press 1 / 2 / 3 to install  -  three of a kind merge up",
+             SCREEN_W/2 - 220, SCREEN_H - 92, 16, HUD_DIM);
 }
 
 /* Game over screen */

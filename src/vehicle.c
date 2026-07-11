@@ -5,6 +5,7 @@
  */
 #include "vehicle.h"
 #include "terrain.h"
+#include "parts.h"
 #include "rlgl.h"
 #include <math.h>
 
@@ -23,7 +24,6 @@ void VehicleInit(Vehicle *v) {
     v->hp           = VEHICLE_HP_BASE;
     v->hpMax        = VEHICLE_HP_BASE;
     v->armor        = 0;
-    v->ramDamage    = 5.0f;
 
     v->fireRate     = TURRET_FIRE_RATE;
     v->fireCooldown = 0.0f;
@@ -39,6 +39,10 @@ void VehicleInit(Vehicle *v) {
     v->shieldCooldown = 0.0f;
     v->hasMagnet      = false;
     v->magnetRadius   = 0.0f;
+
+    v->ramCooldown = 0.0f;
+    for (int i = 0; i < RIG_SLOTS; i++) v->slots[i].filled = false;
+    VehicleRecomputeStats(v);   /* empty rig -> base stats */
 }
 
 /* Shortest-path angle difference, returns value in [-180, 180] */
@@ -205,26 +209,4 @@ void VehicleDraw(const Vehicle *v) {
              hpFrac > 0.5f ? (Color){50, 200, 50, 255} :
              hpFrac > 0.25f ? (Color){220, 180, 30, 255} :
                               (Color){220, 50, 50, 255});
-}
-
-void VehicleApplyUpgrade(Vehicle *v, int upgradeId) {
-    switch (upgradeId) {
-        /* Weapon */
-        case 0:  v->fireRate  *= 1.30f; break;
-        case 1:  v->damage    += 10;    break;
-        case 2:  v->projCount++;        break;
-        case 3:  v->hasFreeze    = true; break;
-        case 4:  v->hasExplosive = true; break;
-        case 5:  v->hasChainLightning = true; break;
-        /* Chassis */
-        case 10: v->speed     *= 1.20f; break;
-        case 11: v->armor     += 5;     break;
-        case 12: v->ramDamage *= 1.50f; break;
-        case 13: v->hpMax     += 30; v->hp = v->hpMax; break;
-        /* Utility */
-        case 20: v->slowAuraRadius = 8.0f; v->slowAuraMod = 0.6f; break;
-        case 21: v->hasMagnet = true; v->magnetRadius = 12.0f; break;
-        case 22: v->hasShield = true; break;
-        default: break;
-    }
 }

@@ -35,7 +35,7 @@ add_executable(DustRunner
     src/enemy.c
     src/projectile.c
     src/wave.c
-    src/upgrade.c
+    src/parts.c
     src/hud.c
     src/postfx.c
     src/sky.c

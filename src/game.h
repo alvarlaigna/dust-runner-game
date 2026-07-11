@@ -69,9 +69,6 @@
 #define UPGRADE_CARD_H    150
 #define UPGRADE_CARD_GAP  18
 
-/* Upgrades */
-#define UPGRADE_POOL_SIZE   30
-
 /* Terrain tile types */
 typedef enum {
     TILE_HARDPAN = 0,   /* 130% speed, ancient road remnant */
@@ -108,12 +105,60 @@ typedef enum {
     UPCAT_UTILITY,
 } UpgradeCategory;
 
+/* Rig: 6 hex slots of mergeable parts (replaces the stat-upgrade draft) */
+#define RIG_SLOTS        6
+#define PART_MAX_LEVEL   3
+#define RIG_FLASH_TIME   0.4f    /* merge highlight duration, seconds */
+
+/* Part tuning (Lv1 / Lv2 / Lv3). All numbers live here for balancing. */
+#define CANNON_FR_L1     1.25f   /* Autocannon: fire-rate multiplier */
+#define CANNON_FR_L2     1.55f
+#define CANNON_FR_L3     1.95f
+#define PAYLOAD_L1       8       /* Payload: flat +damage */
+#define PAYLOAD_L2       20
+#define PAYLOAD_L3       40
+/* Frost Splitter: +projCount == level (1/2/3); freeze unlock at L3 */
+#define PLATING_L1       4       /* Plating: flat +armour */
+#define PLATING_L2       10
+#define PLATING_L3       20
+#define PLATING_AURA_R   8.0f    /* Plating L3: slow-aura radius */
+#define PLATING_AURA_MOD 0.55f   /* Plating L3: slow-aura speed multiplier */
+#define NITRO_L1         1.12f   /* Nitro: speed multiplier */
+#define NITRO_L2         1.30f
+#define NITRO_L3         1.60f
+#define MAGNET_L1        9.0f    /* Scrap Magnet: pickup radius */
+#define MAGNET_L2        14.0f
+#define MAGNET_L3        20.0f
+/* Kinetic Bumper (Nitro L3) */
+#define RAM_DMG_L3       22      /* ram damage once Nitro reaches L3 */
+#define RAM_RADIUS       3.6f    /* contact radius, world units */
+#define RAM_COOLDOWN     0.4f    /* seconds between ram ticks */
+#define RAM_MIN_SPEED    4.0f    /* must be moving faster than this to ram */
+#define RAM_SPEED_MIN_SCALE 0.5f /* ram damage fraction at zero speed; scales to 1.0 at full */
+/* Repulsor Shield (Magnet L3) */
+#define SHIELD_COOLDOWN  8.0f    /* seconds between absorbed hits */
+
+typedef enum {
+    PART_AUTOCANNON = 0, /* WPN fireRate,  L3 chain lightning */
+    PART_PAYLOAD,        /* WPN damage,    L3 explosive        */
+    PART_FROST,          /* WPN projCount, L3 freeze  (Frost Splitter) */
+    PART_PLATING,        /* CHS armour,    L3 slow aura        */
+    PART_NITRO,          /* CHS speed,     L3 ram (Kinetic Bumper) */
+    PART_MAGNET,         /* UTL magnet r,  L3 shield (Repulsor Shield) */
+    PART_TYPE_COUNT
+} PartType;
+
+typedef struct {
+    PartType type;
+    int      level;    /* 1..PART_MAX_LEVEL; meaningful only when filled */
+    bool     filled;
+} HexSlot;
+
 typedef struct {
     const char     *name;
-    const char     *desc;
-    UpgradeCategory category;
-    int             id;         /* unique index into upgrade pool */
-} UpgradeDef;
+    const char     *l3unlock;   /* short Lv3 label */
+    UpgradeCategory category;    /* reuse existing enum for HUD colours */
+} PartDef;
 
 /* Vehicle */
 typedef struct {
@@ -132,6 +177,7 @@ typedef struct {
     int      hpMax;
     int      armor;             /* flat damage reduction */
     float    ramDamage;
+    float    ramCooldown;       /* Kinetic Bumper tick timer */
 
     /* weapon stats */
     float    fireRate;          /* shots / s */
@@ -149,6 +195,9 @@ typedef struct {
     float    shieldCooldown;
     bool     hasMagnet;
     float    magnetRadius;
+
+    /* modular rig: installed parts (recompute drives the stats above) */
+    HexSlot  slots[RIG_SLOTS];
 } Vehicle;
 
 /* Projectile */
@@ -219,8 +268,12 @@ typedef struct {
     Camera3D    camera;
 
     /* upgrade selection */
-    UpgradeDef *upgradeChoices[UPGRADE_CHOICES];
     int         upgradeHover;
+
+    /* rig draft (replaces the upgrade draft) */
+    PartType    rigChoices[UPGRADE_CHOICES];
+    float       rigFlashTimer;   /* merge highlight countdown */
+    int         rigFlashSlot;    /* slot index to flash, or -1 */
 
     /* score / meta */
     int         score;

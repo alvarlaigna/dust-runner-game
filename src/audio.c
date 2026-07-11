@@ -97,6 +97,22 @@ static Sound GenGameOver(AudioManager *am) {
     Sound s = SoundFromSamples(d, n); free(d); return s;
 }
 
+static Sound GenMerge(AudioManager *am) {
+    (void)am;
+    int n = (int)(SAMPLE_RATE * 0.35f);
+    short *d = (short *)malloc(n * sizeof(short));
+    float ph = 0.0f;
+    for (int i = 0; i < n; i++) {
+        float t = (float)i / n;
+        float env = expf(-3.5f * t) * (1.0f - expf(-40.0f * t));   /* snappy attack */
+        float f = (t < 0.5f) ? 620.0f : 930.0f;                    /* two-step rise */
+        ph += f / SAMPLE_RATE; if (ph >= 1.0f) ph -= 1.0f;
+        float s = (sinf(2.0f * PI * ph) * 0.6f + sinf(2.0f * PI * ph * 2.0f) * 0.2f) * env * 0.5f;
+        d[i] = (short)(s * 32767.0f);
+    }
+    Sound s = SoundFromSamples(d, n); free(d); return s;
+}
+
 /* Looping stream fills */
 static void FillEngine(AudioManager *am, short *buf, int n) {
     float inc = am->engineFreq / SAMPLE_RATE;
@@ -131,6 +147,7 @@ void AudioManagerInit(AudioManager *am) {
     am->hit       = GenHit(am);
     am->waveStart = GenWaveStart(am);
     am->gameOver  = GenGameOver(am);
+    am->merge     = GenMerge(am);
 
     SetAudioStreamBufferSizeDefault(BUFLEN);
     am->engine = LoadAudioStream(SAMPLE_RATE, 16, 1);
@@ -161,7 +178,7 @@ void AudioManagerUnload(AudioManager *am) {
     StopAudioStream(am->engine); StopAudioStream(am->wind);
     UnloadAudioStream(am->engine); UnloadAudioStream(am->wind);
     UnloadSound(am->shoot); UnloadSound(am->explosion); UnloadSound(am->hit);
-    UnloadSound(am->waveStart); UnloadSound(am->gameOver);
+    UnloadSound(am->waveStart); UnloadSound(am->gameOver); UnloadSound(am->merge);
     am->ready = false;
 }
 
@@ -173,6 +190,7 @@ void AudioSetSfxVolume(AudioManager *am, float v) {
     SetSoundVolume(am->hit, v);
     SetSoundVolume(am->waveStart, v);
     SetSoundVolume(am->gameOver, v);
+    SetSoundVolume(am->merge, v);
     SetAudioStreamVolume(am->engine, 0.42f * v);   /* engine counts as an SFX */
 }
 void AudioSetMusicVolume(AudioManager *am, float v) {
@@ -190,3 +208,4 @@ void AudioPlayExplosion(AudioManager *am) { if (am->ready) PlaySound(am->explosi
 void AudioPlayHit(AudioManager *am)       { if (am->ready) PlaySound(am->hit); }
 void AudioPlayWaveStart(AudioManager *am) { if (am->ready) PlaySound(am->waveStart); }
 void AudioPlayGameOver(AudioManager *am)  { if (am->ready) PlaySound(am->gameOver); }
+void AudioPlayMerge(AudioManager *am) { if (am->ready) PlaySound(am->merge); }

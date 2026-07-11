@@ -13,7 +13,7 @@
 #include "enemy.h"
 #include "projectile.h"
 #include "wave.h"
-#include "upgrade.h"
+#include "parts.h"
 #include "hud.h"
 #include "postfx.h"
 #include "sky.h"
@@ -24,6 +24,8 @@
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 #if defined(PLATFORM_WEB)
 #include <emscripten/emscripten.h>
@@ -208,7 +210,7 @@ static void GameInit(GameContext *g) {
     TerrainGenerate(&g->terrain, (unsigned int)GetTime() * 1000 + 42);
     VehicleInit(&g->vehicle);
     WaveInit(&g->wave);
-    UpgradePoolInit();
+    srand((unsigned int)time(NULL));
 
     g->state = STATE_PLAYING;
     WaveStartNext(&g->wave);
@@ -287,32 +289,45 @@ static void GameUpdate(GameContext *g, float dt) {
         return;
     }
 
-    /* Upgrade selection state */
+    /* Rig draft state */
     if (g->state == STATE_UPGRADE) {
         int chosen = -1;
+        bool skip = false;
         if (IsKeyPressed(KEY_ONE))   chosen = 0;
         if (IsKeyPressed(KEY_TWO))   chosen = 1;
         if (IsKeyPressed(KEY_THREE)) chosen = 2;
+        if (IsKeyPressed(KEY_S))     skip = true;
 
-        /* Mouse click on card */
         if (InputPointerPressed()) {
             Vector2 m = InputPointerPosition();
-            int cardW = UPGRADE_CARD_W, cardH = UPGRADE_CARD_H, gap = UPGRADE_CARD_GAP;
-            int totalW = UPGRADE_CHOICES * cardW + (UPGRADE_CHOICES - 1) * gap;
-            int startX = SCREEN_W/2 - totalW/2;
-            int cardY  = SCREEN_H/2 - cardH/2 + 10;
-            for (int i = 0; i < UPGRADE_CHOICES; i++) {
-                int cx = startX + i * (cardW + gap);
-                if (m.x >= cx && m.x <= cx + cardW &&
-                    m.y >= cardY && m.y <= cardY + cardH) {
-                    chosen = i;
-                    break;
+            if (CheckCollisionPointRec(m, HudDraftSkipRect())) {
+                skip = true;
+            } else {
+                int cardW = UPGRADE_CARD_W, cardH = UPGRADE_CARD_H, gap = UPGRADE_CARD_GAP;
+                int totalW = UPGRADE_CHOICES * cardW + (UPGRADE_CHOICES - 1) * gap;
+                int startX = SCREEN_W/2 - totalW/2;
+                int cardY  = SCREEN_H/2 - cardH/2 + 10;
+                for (int i = 0; i < UPGRADE_CHOICES; i++) {
+                    int cx = startX + i * (cardW + gap);
+                    if (m.x >= cx && m.x <= cx + cardW &&
+                        m.y >= cardY && m.y <= cardY + cardH) { chosen = i; break; }
                 }
             }
         }
 
-        if (chosen >= 0 && chosen < UPGRADE_CHOICES && g->upgradeChoices[chosen]) {
-            VehicleApplyUpgrade(&g->vehicle, g->upgradeChoices[chosen]->id);
+        if (chosen >= 0 && chosen < UPGRADE_CHOICES) {
+            int flash = -1;
+            int merges = PartsDraft(g->vehicle.slots, g->rigChoices[chosen], &flash);
+            VehicleRecomputeStats(&g->vehicle);
+            if (merges > 0) {
+                g->rigFlashTimer = RIG_FLASH_TIME;
+                g->rigFlashSlot  = flash;
+                if (gAudio) AudioPlayMerge(gAudio);
+            }
+            g->state = STATE_PLAYING;
+            WaveStartNext(&g->wave);
+            if (gAudio) AudioPlayWaveStart(gAudio);
+        } else if (skip) {
             g->state = STATE_PLAYING;
             WaveStartNext(&g->wave);
             if (gAudio) AudioPlayWaveStart(gAudio);
@@ -325,7 +340,7 @@ static void GameUpdate(GameContext *g, float dt) {
         g->wave.respiteTimer -= dt;
         if (g->wave.respiteTimer <= 0.0f) {
             /* Show upgrade screen */
-            UpgradePickChoices(g->upgradeChoices, UPGRADE_CHOICES);
+            PartsRollChoices(g->rigChoices, UPGRADE_CHOICES);
             g->upgradeHover = 0;
             g->state = STATE_UPGRADE;
         }
@@ -334,6 +349,7 @@ static void GameUpdate(GameContext *g, float dt) {
 
     /* Playing state */
     Vehicle *v = &g->vehicle;
+    if (g->rigFlashTimer > 0.0f) g->rigFlashTimer -= dt;
 
     /* Toggle auto-aim */
     if (IsKeyPressed(KEY_SPACE)) v->autoAim = !v->autoAim;
@@ -373,6 +389,9 @@ static void GameUpdate(GameContext *g, float dt) {
     /* Vehicle update */
     VehicleUpdate(v, &g->terrain, dt);
 
+    /* Kinetic Bumper: damage enemies the moving vehicle touches (Nitro L3). */
+    PartsRamPass(v, g->enemies, ENEMY_MAX, dt);
+
     /* Auto-aim: find nearest enemy and rotate turret */
     if (v->autoAim) {
         Enemy *nearest = EnemyFindNearest(g->enemies, ENEMY_MAX, v->pos, TURRET_RANGE);
@@ -387,7 +406,7 @@ static void GameUpdate(GameContext *g, float dt) {
         }
     }
 
-    /* HP regen (upgrade id 15) is a future hook: apply per-second regen here. */
+    /* HP regen is a future hook: apply per-second regen here. */
 
     /* Enemies */
     int newKills = 0;
@@ -463,10 +482,12 @@ static void GameDraw(GameContext *g, SkyState *sky, PostFX *fx, const Settings *
             case STATE_PLAYING:  HudDrawPlaying(g);  break;
             case STATE_RESPITE:  HudDrawPlaying(g);
                                  HudDrawRespite(g);  break;
-            case STATE_UPGRADE:  HudDrawUpgrade(g);  break;
+            case STATE_UPGRADE:  HudDrawDraft(g);    break;
             case STATE_GAMEOVER: HudDrawGameOver(g); break;
             default: break;
         }
+        if (g->state == STATE_PLAYING || g->state == STATE_RESPITE || g->state == STATE_UPGRADE)
+            HudDrawRig(g);
         if (g->state == STATE_PLAYING) HudDrawTutorial(g, touch);
         if (gApp.touchSeen && g->state == STATE_PLAYING) HudDrawTouchControls(g);
         if (g->paused) PauseDraw(settings);

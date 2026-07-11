@@ -7,7 +7,9 @@
 
 void HudDrawPlaying(const GameContext *g);
 void HudDrawRespite(const GameContext *g);
-void HudDrawUpgrade(GameContext *g);   /* mutates upgradeHover */
+void HudDrawRig(const GameContext *g);        /* 6-hex honeycomb of installed parts */
+void HudDrawDraft(GameContext *g);            /* part-choice cards; mutates upgradeHover */
+Rectangle HudDraftSkipRect(void);             /* shared Skip-button rect */
 void HudDrawGameOver(const GameContext *g);
 bool HudGameOverMainMenu(void);   /* true when the game-over Main Menu button is clicked */
 void HudDrawTutorial(const GameContext *g, bool touch);
