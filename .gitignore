@@ -58,7 +58,9 @@ dkms.conf
 *.swp 
 build/
 build-web/
+build-release/
 web-dist/
+dist/
 
 # IDE / editor
 .vs/
