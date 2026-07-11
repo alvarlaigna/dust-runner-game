@@ -57,3 +57,19 @@ dkms.conf
 # Additional Files
 *.swp 
 build/
+build-web/
+web-dist/
+
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+*.user
+CMakeUserPresets.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime-generated
+dustrunner_settings.dat

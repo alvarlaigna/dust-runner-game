@@ -1,86 +1,111 @@
 # Dust Runner
 
+```text
+:::::::::  :::    :::  :::::::: :::::::::::                        
+:+:    :+: :+:    :+: :+:    :+:    :+:                            
++:+    +:+ +:+    +:+ +:+           +:+                            
++#+    +:+ +#+    +:+ +#++:++#++    +#+                            
++#+    +#+ +#+    +#+        +#+    +#+                            
+#+#    #+# #+#    #+# #+#    #+#    #+#                            
+#########   ########   ########     ###                            
+:::::::::  :::    ::: ::::    ::: ::::    ::: :::::::::: ::::::::: 
+:+:    :+: :+:    :+: :+:+:   :+: :+:+:   :+: :+:        :+:    :+:
++:+    +:+ +:+    +:+ :+:+:+  +:+ :+:+:+  +:+ +:+        +:+    +:+
++#++:++#:  +#+    +:+ +#+ +:+ +#+ +#+ +:+ +#+ +#++:++#   +#++:++#: 
++#+    +#+ +#+    +#+ +#+  +#+#+# +#+  +#+#+# +#+        +#+    +#+
+#+#    #+# #+#    #+# #+#   #+#+# #+#   #+#+# #+#        #+#    #+#
+###    ###  ########  ###    #### ###    #### ########## ###    ###
+```
+
 **The commander never touches the wheel.**
 
-A tactical vehicle-survival game. Command an armored 4×4 through a procedural desert wasteland using point-and-click orders. Survive escalating waves of enemies, collect scrap, and choose upgrades between desperate stands in this HD-2D diorama experience.
+A tactical vehicle-survival game. Command an armored 4×4 through a procedural desert
+wasteland using point-and-click orders. Survive escalating waves, collect scrap, and
+choose upgrades between desperate stands in this HD-2D diorama experience.
 
 *Vampire Survivors × Cannon Fodder × FTL*
 
-**Current status:** Playable prototype. Single-player. Programmer-art visuals.
+**Play in your browser:** https://alvarlaigna.itch.io/dust-runner
 
-## Getting Started with this template
+**Status:** playable prototype, single-player, programmer-art visuals. Fixed 720×720,
+runs on desktop (Windows / Linux) and in the browser via WebAssembly.
 
-This project is built with plain C99 and [raylib 6.0](https://www.raylib.com). Raylib is automatically downloaded and built via CMake's `FetchContent` on first configure.
+## Build
+
+Plain C99 and [raylib 6.0](https://www.raylib.com), fetched and built automatically by
+CMake `FetchContent` on first configure (needs internet the first time).
 
 ### Prerequisites
-- CMake 3.16 or newer
-- A C99-compatible compiler (GCC, Clang, or MSVC)
-- Internet connection for the first build (to fetch raylib)
 
-### Build & Run (CMake)
+- CMake 3.16+ and Ninja
+- A GCC or Clang toolchain (MinGW-w64 on Windows). MSVC is not supported: the build
+  uses GCC-style flags.
+- For the web build, the [Emscripten SDK](https://emscripten.org) (`emsdk`).
+
+### Desktop
 
 ```sh
-# Configure (first time will download and build raylib ~40s)
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-
-# Build
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release   # or Debug
 cmake --build build
-
-# Run
-./build/DustRunner          # Linux / macOS
-./build/DustRunner.exe      # Windows
+./build/DustRunner        # Linux / macOS
+./build/DustRunner.exe    # Windows
 ```
 
-**Release build:**
+Debug builds with `-Wall -Wextra` and stays warning-clean. Release adds `-O2` and
+strips symbols; the Windows binary is statically linked, so it needs no MinGW DLLs.
+
+> The `build/` directory is git-ignored and not portable between operating systems.
+> Delete and reconfigure if you switch platforms.
+
+### Web (WebAssembly)
+
+Activate emsdk in your shell, then:
+
 ```sh
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+emcmake cmake -S . -B build-web -G Ninja -DPLATFORM=Web -DCMAKE_BUILD_TYPE=Release
+cmake --build build-web
+python -m http.server 8000 --directory build-web   # open http://localhost:8000/index.html
 ```
 
-> **Note:** The `build/` directory is git-ignored and not portable between operating systems. Delete and reconfigure if you switch platforms.
+The web build emits `index.html` + `index.js` + `index.wasm` (about 430 KB total). Zip
+those and upload as an HTML5 game on itch.io.
 
-### Windows (Visual Studio)
-1. Generate the solution:
-   ```powershell
-   cmake -S . -B build -G "Visual Studio 17 2022"
-   ```
-2. Open `build/DustRunner.sln`
-3. Set `DustRunner` as the startup project and run.
+### Linux dependencies
 
-### Linux Dependencies
-Install development packages for your distro (example for Debian/Ubuntu):
 ```sh
-sudo apt install build-essential cmake libasound2-dev libx11-dev libxrandr-dev \
-  libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxcursor-dev libxinerama-dev libxxf86vm-dev
+sudo apt install build-essential cmake ninja-build libasound2-dev libx11-dev \
+  libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxcursor-dev libxinerama-dev
 ```
 
-## Description
+CI (`.github/workflows/build.yml`) builds all three targets on every push.
 
-You are the commander, not the driver.
+## Play
 
-Issue movement orders to your armored vehicle with the left mouse button. The vehicle handles driving on its own using realistic steering and terrain-aware movement. Your turret automatically targets the nearest threat or take manual control with right-click for critical shots.
-
-Position carefully. Terrain affects your speed. Survive the waves. Choose upgrades. Repeat.
-
-## Features
-
-- **Point-and-click command system** — indirect control creates real tactical tension
-- **Autonomous turret with manual override** — auto-aim for normal play, right-click for clutch shots
-- **Wave-based survival** — escalating enemy types and increasing pressure
-- **Meaningful terrain** — hardpan, sand, dunes, and ruins directly affect movement and strategy
-- **Upgrade system** — weapon, chassis, and utility upgrades between waves (stackable)
-- **Stylized HD-2D diorama visuals** — fixed camera, tilt-shift post-processing, procedural sky and parallax background
-- **Fully procedural audio** — synthesized sound effects and engine/wind layers
+You are the commander, not the driver. Issue movement orders with the left mouse button
+and the vehicle drives itself with realistic steering and terrain-aware movement. The
+turret auto-targets the nearest threat, or take manual control for critical shots.
+Position carefully, survive the waves, choose upgrades, repeat.
 
 ## Controls
 
-**Keyboard + Mouse:**
+- **Left click** - move the vehicle to a point (also drives menus and tap-to-move on touch)
+- **Right click** - manual turret fire toward the cursor
+- **SPACE** - toggle turret auto-aim
+- **ESC** - pause (Continue / Settings / Quit to Title)
+- **R** - restart on the game-over screen
 
-- **Left Mouse Button** — Set movement target for the vehicle
-- **Right Mouse Button** — Manual turret fire toward cursor (one shot)
-- **SPACE** — Toggle turret auto-aim on/off
-- **ESC** — Open pause menu (settings, volume, quit)
-- **R** — Restart (on game over screen)
+On touch devices auto-aim defaults on, with on-screen auto-aim and pause buttons.
+
+## Features
+
+- Point-and-click command: indirect control creates tactical tension
+- Autonomous turret with manual override
+- Wave-based survival with escalating enemy types
+- Terrain that affects movement: hardpan, sand, dune, ruin
+- Weapon / chassis / utility upgrades between waves
+- HD-2D diorama look: tilt-shift post-processing, procedural sky, parallax horizon
+- Fully procedural audio: synthesized SFX plus engine and wind layers
+- Desktop and mobile-friendly WebAssembly on a single 720×720 canvas
 
 ## Screenshots
 
@@ -98,8 +123,9 @@ https://alvarlaigna.com/
 - Author: [https://alvarlaigna.com/](https://alvarlaigna.com/)
 - itch.io Release: [https://alvarlaigna.itch.io/dust-runner](https://alvarlaigna.itch.io/dust-runner)
 
+
 ## License
 
-This project sources are licensed under an unmodified zlib/libpng license, which is an OSI-certified, BSD-like license that allows static linking with closed source software.
+Source is released under the zlib/libpng license.
 
-Copyright (c) 2026 Alvar Laigna (https://alvarlaigna.com/)
+Copyright (c) 2026 Alvar Laigna (https://alvarlaigna.itch.io/)

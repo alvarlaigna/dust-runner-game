@@ -1,9 +1,22 @@
 cmake_minimum_required(VERSION 3.16)
-project(DustRunner C)
+
+message([=[
+
+██████╗░██╗░░░██╗░██████╗████████╗  ██████╗░██╗░░░██╗███╗░░██╗███╗░░██╗███████╗██████╗░
+██╔══██╗██║░░░██║██╔════╝╚══██╔══╝  ██╔══██╗██║░░░██║████╗░██║████╗░██║██╔════╝██╔══██╗
+██║░░██║██║░░░██║╚█████╗░░░░██║░░░  ██████╔╝██║░░░██║██╔██╗██║██╔██╗██║█████╗░░██████╔╝
+██║░░██║██║░░░██║░╚═══██╗░░░██║░░░  ██╔══██╗██║░░░██║██║╚████║██║╚████║██╔══╝░░██╔══██╗
+██████╔╝╚██████╔╝██████╔╝░░░██║░░░  ██║░░██║╚██████╔╝██║░╚███║██║░╚███║███████╗██║░░██║
+╚═════╝░░╚═════╝░╚═════╝░░░░╚═╝░░░  ╚═╝░░╚═╝░╚═════╝░╚═╝░░╚══╝╚═╝░░╚══╝╚══════╝╚═╝░░╚═╝
+
+        tactical desert survival  ·  https://alvarlaigna.itch.io/
+]=])
+
+project(DustRunner VERSION 0.1.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 
-# ── Raylib via FetchContent ──────────────────────────────────────────────────
+# Raylib via FetchContent (pinned to a release tag).
 include(FetchContent)
 FetchContent_Declare(
     raylib
@@ -14,7 +27,7 @@ FetchContent_Declare(
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(raylib)
 
-# ── Sources ──────────────────────────────────────────────────────────────────
+# Sources.
 add_executable(DustRunner
     src/main.c
     src/terrain.c
@@ -31,15 +44,43 @@ add_executable(DustRunner
 )
 
 target_include_directories(DustRunner PRIVATE src)
-target_link_libraries(DustRunner PRIVATE raylib m)
+target_link_libraries(DustRunner PRIVATE raylib)
 
-if(UNIX AND NOT APPLE)
-    target_link_libraries(DustRunner PRIVATE dl pthread)
+# Platform link config.
+if(EMSCRIPTEN)
+    # Web: emit index.html (+ .js/.wasm) via the custom shell; GLFW3 + growable heap.
+    set(CMAKE_EXECUTABLE_SUFFIX ".html")
+    set_target_properties(DustRunner PROPERTIES OUTPUT_NAME "index")
+    target_link_options(DustRunner PRIVATE
+        "-sUSE_GLFW=3"
+        "-sALLOW_MEMORY_GROWTH=1"
+        "-sFORCE_FILESYSTEM=1"
+        "-sSTACK_SIZE=1048576"
+        "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/web/shell.html")
+    target_compile_definitions(DustRunner PRIVATE PLATFORM_WEB)
+else()
+    target_link_libraries(DustRunner PRIVATE m)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(DustRunner PRIVATE dl pthread)
+    endif()
+    if(WIN32)
+        # Standalone exe: statically link the MinGW runtime so no DLLs are needed.
+        target_link_options(DustRunner PRIVATE -static -static-libgcc)
+    endif()
 endif()
 
-# ── Compiler flags ───────────────────────────────────────────────────────────
+# Compiler flags (GCC / Clang / emcc).
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options(DustRunner PRIVATE -O2 -s)
+    target_compile_options(DustRunner PRIVATE -O2)
+    if(NOT EMSCRIPTEN)
+        target_compile_options(DustRunner PRIVATE -s)   # strip: desktop only
+    endif()
 else()
     target_compile_options(DustRunner PRIVATE -g -Wall -Wextra)
+endif()
+
+if(EMSCRIPTEN)
+    message(STATUS "Dust Runner v${PROJECT_VERSION}  ->  Web (WebAssembly)")
+else()
+    message(STATUS "Dust Runner v${PROJECT_VERSION}  ->  desktop (${CMAKE_SYSTEM_NAME})")
 endif()

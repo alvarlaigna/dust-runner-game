@@ -1,0 +1,9 @@
+# Normalize line endings: LF in the repo and on checkout (cross-platform C).
+* text=auto eol=lf
+
+# Binary assets (never normalized).
+*.png binary
+*.jpg binary
+*.ico binary
+*.wasm binary
+*.data binary
